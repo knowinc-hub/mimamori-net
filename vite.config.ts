@@ -7,6 +7,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Phase 2 で Firebase Hosting へ移行したら未指定（= '/'）でビルドする。
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
+  // 実機確認用: cloudflared の一時トンネル経由で preview を開けるようにする
+  preview: { allowedHosts: ['.trycloudflare.com'] },
   plugins: [
     react(),
     tailwindcss(),
