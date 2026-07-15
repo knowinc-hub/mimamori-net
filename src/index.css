@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+/* 高齢の利用者を想定し、ベースは16px・システムフォント（Hiragino / Noto）を使用 */
+html {
+  font-family:
+    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI',
+    system-ui, sans-serif;
+}
+
+body {
+  @apply bg-slate-100 text-slate-900;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* キーボード操作時のフォーカスを明確に */
+:focus-visible {
+  outline: 3px solid #0f766e;
+  outline-offset: 2px;
+}
+
+/* 転載抑止: 依頼写真は長押しメニュー・ドラッグ保存をしにくくする（完全防止は不可能） */
+.guarded-photo img {
+  pointer-events: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
