@@ -158,5 +158,3 @@ export class LocalRepository implements Repository {
     localStorage.removeItem(KEYS.draft)
   }
 }
-
-export const repository: Repository = new LocalRepository()

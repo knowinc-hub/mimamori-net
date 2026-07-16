@@ -1,11 +1,13 @@
-import { UserRound, Bell, Info } from 'lucide-react'
+import { UserRound, Bell, Info, LogOut } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { useOptionalAuth } from '../context/AuthContext'
 import { LoadingCards, ErrorState } from '../components/ui/states'
 import { Toggle } from '../components/ui/Toggle'
 import type { Profile } from '../types'
 
 export function SettingsScreen() {
   const { loadState, profile, updateProfile, refresh } = useApp()
+  const auth = useOptionalAuth()
 
   if (loadState === 'loading' || !profile) {
     if (loadState === 'error') return <ErrorState onRetry={() => void refresh()} />
@@ -37,11 +39,27 @@ export function SettingsScreen() {
             <dt className="text-slate-600">登録日</dt>
             <dd className="font-medium text-slate-900">{profile.joinedAt}</dd>
           </div>
+          {profile.organizationName && (
+            <div className="flex justify-between py-2.5">
+              <dt className="text-slate-600">所属団体</dt>
+              <dd className="font-medium text-slate-900">{profile.organizationName}</dd>
+            </div>
+          )}
           <div className="flex justify-between py-2.5">
             <dt className="text-slate-600">協力実績</dt>
             <dd className="font-bold text-teal-800">{profile.contributions}件</dd>
           </div>
         </dl>
+        {auth && (
+          <button
+            type="button"
+            onClick={() => void auth.signOut()}
+            className="mt-3 flex min-h-11 items-center gap-1.5 text-base font-medium text-slate-600 hover:text-slate-900"
+          >
+            <LogOut className="h-5 w-5" aria-hidden="true" />
+            ログアウト
+          </button>
+        )}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
