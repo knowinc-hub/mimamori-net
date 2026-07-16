@@ -8,19 +8,25 @@ import {
   type ReactNode,
 } from 'react'
 import { repository } from '../data/localRepository'
-import type { HistoryEntry, Post, PostInput, Profile } from '../types'
+import type {
+  HistoryEntry,
+  Profile,
+  RequestInput,
+  SearchRequest,
+  UpdateInput,
+} from '../types'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
 interface AppContextValue {
   loadState: LoadState
-  posts: Post[]
+  requests: SearchRequest[]
   history: HistoryEntry[]
   profile: Profile | null
   refresh: () => Promise<void>
-  createPost: (input: PostInput) => Promise<Post>
-  addResponse: (id: string) => Promise<void>
-  resolvePost: (id: string) => Promise<void>
+  createRequest: (input: RequestInput) => Promise<SearchRequest>
+  addUpdate: (requestId: string, input: UpdateInput) => Promise<void>
+  resolveRequest: (id: string) => Promise<void>
   updateProfile: (profile: Profile) => Promise<void>
 }
 
@@ -28,21 +34,21 @@ const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loadState, setLoadState] = useState<LoadState>('loading')
-  const [posts, setPosts] = useState<Post[]>([])
+  const [requests, setRequests] = useState<SearchRequest[]>([])
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
 
   const refresh = useCallback(async () => {
     setLoadState('loading')
     try {
-      const [p, h, pr] = await Promise.all([
-        repository.listPosts(),
+      const [r, h, p] = await Promise.all([
+        repository.listRequests(),
         repository.listHistory(),
         repository.getProfile(),
       ])
-      setPosts(p)
+      setRequests(r)
       setHistory(h)
-      setProfile(pr)
+      setProfile(p)
       setLoadState('ready')
     } catch {
       setLoadState('error')
@@ -53,24 +59,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh])
 
-  const createPost = useCallback(async (input: PostInput) => {
-    const post = await repository.createPost(input)
-    setPosts(await repository.listPosts())
-    return post
+  const createRequest = useCallback(async (input: RequestInput) => {
+    const request = await repository.createRequest(input)
+    setRequests(await repository.listRequests())
+    return request
   }, [])
 
-  const addResponse = useCallback(async (id: string) => {
-    await repository.addResponse(id)
-    setPosts(await repository.listPosts())
+  const addUpdate = useCallback(async (requestId: string, input: UpdateInput) => {
+    await repository.addUpdate(requestId, input)
+    setRequests(await repository.listRequests())
   }, [])
 
-  const resolvePost = useCallback(async (id: string) => {
-    await repository.resolvePost(id)
-    const [p, h] = await Promise.all([
-      repository.listPosts(),
+  const resolveRequest = useCallback(async (id: string) => {
+    await repository.resolveRequest(id)
+    const [r, h] = await Promise.all([
+      repository.listRequests(),
       repository.listHistory(),
     ])
-    setPosts(p)
+    setRequests(r)
     setHistory(h)
   }, [])
 
@@ -82,16 +88,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       loadState,
-      posts,
+      requests,
       history,
       profile,
       refresh,
-      createPost,
-      addResponse,
-      resolvePost,
+      createRequest,
+      addUpdate,
+      resolveRequest,
       updateProfile,
     }),
-    [loadState, posts, history, profile, refresh, createPost, addResponse, resolvePost, updateProfile],
+    [loadState, requests, history, profile, refresh, createRequest, addUpdate, resolveRequest, updateProfile],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

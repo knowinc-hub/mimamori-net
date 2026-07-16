@@ -3,9 +3,6 @@ import {
   X,
   ArrowLeft,
   ArrowRight,
-  Search,
-  CheckCircle2,
-  MessageCircle,
   Phone,
   ShieldCheck,
   Camera,
@@ -13,8 +10,8 @@ import {
   Send,
   Lock,
 } from 'lucide-react'
-import type { PostInput, PostType } from '../../types'
-import { AREAS, EMPTY_POST_INPUT, POST_TYPE_LABEL } from '../../types'
+import type { RequestInput } from '../../types'
+import { AREAS, EMPTY_REQUEST_INPUT } from '../../types'
 import { repository } from '../../data/localRepository'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../context/ToastContext'
@@ -23,17 +20,15 @@ import { Field, inputClass } from '../ui/form'
 import { GuardedPhoto } from '../GuardedPhoto'
 import { fileToResizedDataUrl } from './photo'
 
-type StepId = 'type' | 'police' | 'person' | 'situation' | 'confirm'
-
-/** 種類ごとのステップ構成。緊急時を想定し、各ステップの入力は3項目以内。 */
-function stepsFor(type: PostType): StepId[] {
-  return type === 'searching'
-    ? ['type', 'police', 'person', 'situation', 'confirm']
-    : ['type', 'situation', 'confirm']
-}
+/**
+ * 捜索依頼専用のステップ式ウィザード。
+ * 発見報告・情報提供はここではなく、依頼カード上のボタンから追加する。
+ * 緊急時を想定し、各ステップの入力は3項目以内。
+ */
+const STEPS = ['police', 'person', 'situation', 'confirm'] as const
+type StepId = (typeof STEPS)[number]
 
 const STEP_TITLE: Record<StepId, string> = {
-  type: '投稿の種類',
   police: '警察への届出確認',
   person: 'ご本人の情報',
   situation: '場所と状況',
@@ -45,25 +40,24 @@ interface Props {
   onClose: () => void
 }
 
-export function PostWizard({ open, onClose }: Props) {
-  const { createPost, profile } = useApp()
+export function RequestWizard({ open, onClose }: Props) {
+  const { createRequest, profile } = useApp()
   const showToast = useToast()
-  const [input, setInput] = useState<PostInput>(EMPTY_POST_INPUT)
+  const [input, setInput] = useState<RequestInput>(EMPTY_REQUEST_INPUT)
   const [stepIndex, setStepIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [draftAvailable, setDraftAvailable] = useState<PostInput | null>(null)
+  const [draftAvailable, setDraftAvailable] = useState<RequestInput | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
 
-  const steps = stepsFor(input.type)
-  const step = steps[Math.min(stepIndex, steps.length - 1)]
+  const step = STEPS[stepIndex]
 
   // 開いたとき: 下書きがあれば再開を提案
   useEffect(() => {
     if (!open) return
     setStepIndex(0)
     setError(null)
-    setInput({ ...EMPTY_POST_INPUT, area: profile?.area ?? EMPTY_POST_INPUT.area })
+    setInput({ ...EMPTY_REQUEST_INPUT, area: profile?.area ?? EMPTY_REQUEST_INPUT.area })
     void repository.loadDraft().then((draft) => {
       if (draft && (draft.location || draft.personName || draft.detail)) {
         setDraftAvailable(draft)
@@ -96,7 +90,7 @@ export function PostWizard({ open, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  const update = useCallback((patch: Partial<PostInput>) => {
+  const update = useCallback((patch: Partial<RequestInput>) => {
     setError(null)
     setInput((prev) => ({ ...prev, ...patch }))
   }, [])
@@ -113,7 +107,7 @@ export function PostWizard({ open, onClose }: Props) {
       return
     }
     setError(null)
-    setStepIndex((i) => Math.min(i + 1, steps.length - 1))
+    setStepIndex((i) => Math.min(i + 1, STEPS.length - 1))
   }
 
   const goBack = () => {
@@ -124,9 +118,9 @@ export function PostWizard({ open, onClose }: Props) {
   const submit = async () => {
     setSubmitting(true)
     try {
-      await createPost(input)
+      await createRequest(input)
       await repository.clearDraft()
-      showToast('投稿しました。エリア内のメンバーにのみ共有されます。')
+      showToast('捜索依頼を投稿しました。エリア内のメンバーにのみ共有されます。')
       onClose()
     } catch {
       setError('投稿に失敗しました。通信状態をご確認のうえ、もう一度お試しください。')
@@ -147,7 +141,7 @@ export function PostWizard({ open, onClose }: Props) {
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <p className="text-sm text-slate-600">
-              ステップ {stepIndex + 1} / {steps.length}
+              捜索依頼 — ステップ {stepIndex + 1} / {STEPS.length}
             </p>
             <h2 id="wizard-title" ref={headingRef} tabIndex={-1} className="text-lg font-bold text-slate-900 outline-none">
               {STEP_TITLE[step]}
@@ -167,7 +161,7 @@ export function PostWizard({ open, onClose }: Props) {
         <div className="h-1 bg-slate-100" aria-hidden="true">
           <div
             className="h-1 bg-teal-700 transition-all"
-            style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
+            style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }}
           />
         </div>
 
@@ -198,7 +192,6 @@ export function PostWizard({ open, onClose }: Props) {
             </div>
           )}
 
-          {step === 'type' && <TypeStep input={input} update={update} />}
           {step === 'police' && <PoliceStep input={input} update={update} />}
           {step === 'person' && <PersonStep input={input} update={update} onError={setError} />}
           {step === 'situation' && <SituationStep input={input} update={update} error={error} />}
@@ -228,7 +221,7 @@ export function PostWizard({ open, onClose }: Props) {
             ) : (
               <Button variant="primary" onClick={() => void submit()} disabled={submitting} className="flex-1">
                 <Send className="h-4 w-4" aria-hidden="true" />
-                {submitting ? '投稿中…' : 'この内容で投稿する'}
+                {submitting ? '投稿中…' : 'この内容で依頼する'}
               </Button>
             )}
           </div>
@@ -240,46 +233,7 @@ export function PostWizard({ open, onClose }: Props) {
 
 /* ---------- 各ステップ ---------- */
 
-function TypeStep({ input, update }: { input: PostInput; update: (p: Partial<PostInput>) => void }) {
-  const options: { type: PostType; icon: typeof Search; desc: string }[] = [
-    { type: 'searching', icon: Search, desc: '行方がわからない方の捜索をエリア内のメンバーに依頼します' },
-    { type: 'found', icon: CheckCircle2, desc: '無事に見つかったことをお知らせします' },
-    { type: 'info', icon: MessageCircle, desc: '見かけた・気づいたことなどの情報を共有します' },
-  ]
-  return (
-    <div role="radiogroup" aria-label="投稿の種類" className="space-y-3">
-      {options.map(({ type, icon: Icon, desc }) => {
-        const selected = input.type === type
-        return (
-          <button
-            key={type}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => update({ type })}
-            className={`flex w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-colors ${
-              selected ? 'border-teal-700 bg-teal-50' : 'border-slate-200 bg-white hover:border-slate-300'
-            }`}
-          >
-            <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
-                selected ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-600'
-              }`}
-            >
-              <Icon className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-base font-bold text-slate-900">{POST_TYPE_LABEL[type]}</p>
-              <p className="mt-0.5 text-sm leading-relaxed text-slate-600">{desc}</p>
-            </div>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function PoliceStep({ input, update }: { input: PostInput; update: (p: Partial<PostInput>) => void }) {
+function PoliceStep({ input, update }: { input: RequestInput; update: (p: Partial<RequestInput>) => void }) {
   const [notReported, setNotReported] = useState(false)
 
   if (notReported) {
@@ -357,8 +311,8 @@ function PersonStep({
   update,
   onError,
 }: {
-  input: PostInput
-  update: (p: Partial<PostInput>) => void
+  input: RequestInput
+  update: (p: Partial<RequestInput>) => void
   onError: (msg: string | null) => void
 }) {
   const [processing, setProcessing] = useState(false)
@@ -390,11 +344,7 @@ function PersonStep({
         )}
       </Field>
 
-      <Field
-        label="写真"
-        optional
-        hint="写真は捜索依頼のみ添付できます。解決したら自動的に削除されます。"
-      >
+      <Field label="写真" optional hint="解決したら自動的に削除されます。">
         {(a11y) => (
           <div>
             {input.photoDataUrl ? (
@@ -433,8 +383,8 @@ function SituationStep({
   update,
   error,
 }: {
-  input: PostInput
-  update: (p: Partial<PostInput>) => void
+  input: RequestInput
+  update: (p: Partial<RequestInput>) => void
   error: string | null
 }) {
   return (
@@ -444,7 +394,7 @@ function SituationStep({
           <select
             {...a11y}
             value={input.area}
-            onChange={(e) => update({ area: e.target.value as PostInput['area'] })}
+            onChange={(e) => update({ area: e.target.value as RequestInput['area'] })}
             className={inputClass()}
           >
             {AREAS.map((a) => (
@@ -456,10 +406,7 @@ function SituationStep({
         )}
       </Field>
 
-      <Field
-        label={input.type === 'searching' ? '最後に見かけた場所' : '場所'}
-        error={error ?? undefined}
-      >
+      <Field label="最後に見かけた場所" error={error ?? undefined}>
         {(a11y) => (
           <input
             {...a11y}
@@ -485,36 +432,36 @@ function SituationStep({
         )}
       </Field>
 
-      {input.type === 'searching' && (
-        <Field label="連絡先" optional hint="目撃情報を受け取る電話番号など">
-          {(a11y) => (
-            <input
-              {...a11y}
-              type="text"
-              value={input.contact}
-              onChange={(e) => update({ contact: e.target.value })}
-              placeholder="例：090-XXXX-XXXX"
-              className={inputClass()}
-            />
-          )}
-        </Field>
-      )}
+      <Field label="連絡先" optional hint="目撃情報を受け取る電話番号など">
+        {(a11y) => (
+          <input
+            {...a11y}
+            type="text"
+            value={input.contact}
+            onChange={(e) => update({ contact: e.target.value })}
+            placeholder="例：090-XXXX-XXXX"
+            className={inputClass()}
+          />
+        )}
+      </Field>
     </div>
   )
 }
 
-function ConfirmStep({ input }: { input: PostInput }) {
+function ConfirmStep({ input }: { input: RequestInput }) {
   const rows: [string, string][] = [
-    ['種類', POST_TYPE_LABEL[input.type]],
     ['エリア', input.area],
     ['場所', input.location],
   ]
   if (input.personName) rows.push(['お名前・特徴', input.personName])
   if (input.detail) rows.push(['詳細', input.detail])
   if (input.contact) rows.push(['連絡先', input.contact])
-  if (input.type === 'searching') {
-    rows.push(['警察届出', input.policeReported ? `届出済み${input.policeReportNumber ? `（${input.policeReportNumber}）` : ''}` : '未確認'])
-  }
+  rows.push([
+    '警察届出',
+    input.policeReported
+      ? `届出済み${input.policeReportNumber ? `（${input.policeReportNumber}）` : ''}`
+      : '未確認',
+  ])
 
   return (
     <div>
@@ -522,7 +469,7 @@ function ConfirmStep({ input }: { input: PostInput }) {
       <div className="mb-5 flex gap-3 rounded-2xl border border-teal-200 bg-teal-50 p-4">
         <Lock className="mt-0.5 h-5 w-5 shrink-0 text-teal-700" aria-hidden="true" />
         <p className="text-sm leading-relaxed text-slate-800">
-          この投稿は<strong>エリア内のメンバーのみ</strong>に共有されます。SNSへの転載はできません。
+          この依頼は<strong>エリア内のメンバーのみ</strong>に共有されます。SNSへの転載はできません。
           解決後、写真と詳細情報は<strong>自動的に削除</strong>されます。
         </p>
       </div>

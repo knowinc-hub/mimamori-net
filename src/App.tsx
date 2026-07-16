@@ -8,7 +8,7 @@ import { HomeScreen } from './screens/HomeScreen'
 import { AreaScreen } from './screens/AreaScreen'
 import { HistoryScreen } from './screens/HistoryScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
-import { PostWizard } from './components/post/PostWizard'
+import { RequestWizard } from './components/post/RequestWizard'
 import { InstallBanner } from './components/InstallBanner'
 import { OfflineBanner } from './components/OfflineBanner'
 
@@ -28,18 +28,18 @@ function Shell() {
         {tab === 'settings' && <SettingsScreen />}
       </main>
 
-      {/* 投稿ボタン（ラベル併記・44px以上） */}
+      {/* 捜索依頼ボタン（ラベル併記・44px以上）。発見報告・情報提供は依頼カードから行う */}
       <button
         type="button"
         onClick={() => setWizardOpen(true)}
-        className="fixed bottom-20 right-4 z-30 flex min-h-14 items-center gap-2 rounded-full bg-teal-700 px-6 text-lg font-bold text-white shadow-lg hover:bg-teal-800 active:bg-teal-900 mb-[env(safe-area-inset-bottom)]"
+        className="fixed bottom-20 right-4 z-30 flex min-h-14 items-center gap-2 rounded-full bg-teal-700 px-5 text-base font-bold text-white shadow-lg hover:bg-teal-800 active:bg-teal-900 mb-[env(safe-area-inset-bottom)]"
       >
         <Plus className="h-6 w-6" aria-hidden="true" />
-        投稿
+        捜索依頼をする
       </button>
 
       <TabBar active={tab} onChange={setTab} />
-      <PostWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      <RequestWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </div>
   )
 }

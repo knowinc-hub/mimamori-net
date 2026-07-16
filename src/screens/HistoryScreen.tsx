@@ -59,8 +59,8 @@ export function HistoryScreen() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Users className="h-4 w-4 text-slate-500" aria-hidden="true" />
-                  <dt className="sr-only">反応数</dt>
-                  <dd>反応 {entry.responses}件</dd>
+                  <dt className="sr-only">寄せられた情報の件数</dt>
+                  <dd>寄せられた情報 {entry.updateCount}件</dd>
                 </div>
               </dl>
             </li>

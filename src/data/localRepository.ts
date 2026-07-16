@@ -1,13 +1,20 @@
 import type { Repository } from './repository'
-import type { HistoryEntry, Post, PostInput, Profile } from '../types'
-import { seedPosts } from './seed'
+import type {
+  HistoryEntry,
+  Profile,
+  RequestInput,
+  SearchRequest,
+  UpdateInput,
+} from '../types'
+import { seedRequests } from './seed'
 
+// スキーマ変更時はバージョンを上げて古いローカルデータを無視する
 const KEYS = {
-  posts: 'mimamori:posts',
-  history: 'mimamori:history',
-  profile: 'mimamori:profile',
-  draft: 'mimamori:draft',
-  seeded: 'mimamori:seeded',
+  requests: 'mimamori:v2:requests',
+  history: 'mimamori:v2:history',
+  profile: 'mimamori:v2:profile',
+  draft: 'mimamori:v2:draft',
+  seeded: 'mimamori:v2:seeded',
 } as const
 
 const DEFAULT_PROFILE: Profile = {
@@ -35,6 +42,9 @@ function write(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
+const newId = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
 /**
  * Phase 1 用のローカル実装。localStorage に保存し、初回のみデモデータを投入する。
  * Phase 2 で firestoreRepository に差し替える。
@@ -42,74 +52,76 @@ function write(key: string, value: unknown) {
 export class LocalRepository implements Repository {
   constructor() {
     if (!localStorage.getItem(KEYS.seeded)) {
-      write(KEYS.posts, seedPosts())
+      write(KEYS.requests, seedRequests())
       write(KEYS.seeded, true)
     }
   }
 
-  async listPosts(): Promise<Post[]> {
+  async listRequests(): Promise<SearchRequest[]> {
     await delay()
-    return read<Post[]>(KEYS.posts, []).sort((a, b) => b.createdAt - a.createdAt)
+    return read<SearchRequest[]>(KEYS.requests, []).sort(
+      (a, b) => b.createdAt - a.createdAt,
+    )
   }
 
-  async createPost(input: PostInput): Promise<Post> {
+  async createRequest(input: RequestInput): Promise<SearchRequest> {
     await delay()
     const now = Date.now()
-    const post: Post = {
-      id: `p-${now}-${Math.random().toString(36).slice(2, 8)}`,
-      type: input.type,
+    const request: SearchRequest = {
+      id: newId('r'),
       status: 'active',
       area: input.area,
       location: input.location.trim(),
       personName: input.personName.trim() || undefined,
       detail: input.detail.trim() || undefined,
       contact: input.contact.trim() || undefined,
-      photoDataUrl:
-        input.type === 'searching' && input.photoDataUrl
-          ? input.photoDataUrl
-          : undefined,
-      policeReported: input.type === 'searching' ? input.policeReported : undefined,
-      policeReportNumber:
-        input.type === 'searching'
-          ? input.policeReportNumber.trim() || undefined
-          : undefined,
+      photoDataUrl: input.photoDataUrl ?? undefined,
+      policeReported: input.policeReported,
+      policeReportNumber: input.policeReportNumber.trim() || undefined,
       createdAt: now,
       updatedAt: now,
-      responses: 0,
+      updates: [],
     }
-    const posts = read<Post[]>(KEYS.posts, [])
-    posts.unshift(post)
-    write(KEYS.posts, posts)
-    return post
+    const requests = read<SearchRequest[]>(KEYS.requests, [])
+    requests.unshift(request)
+    write(KEYS.requests, requests)
+    return request
   }
 
-  async addResponse(id: string): Promise<Post> {
-    await delay(120)
-    const posts = read<Post[]>(KEYS.posts, [])
-    const post = posts.find((p) => p.id === id)
-    if (!post) throw new Error('投稿が見つかりませんでした')
-    post.responses += 1
-    post.updatedAt = Date.now()
-    write(KEYS.posts, posts)
-    return post
+  async addUpdate(requestId: string, input: UpdateInput): Promise<SearchRequest> {
+    await delay(150)
+    const requests = read<SearchRequest[]>(KEYS.requests, [])
+    const request = requests.find((r) => r.id === requestId)
+    if (!request) throw new Error('依頼が見つかりませんでした')
+    request.updates.push({
+      id: newId('u'),
+      kind: input.kind,
+      location: input.location.trim() || undefined,
+      whenText: input.whenText.trim() || undefined,
+      comment: input.comment.trim() || undefined,
+      createdAt: Date.now(),
+    })
+    request.updatedAt = Date.now()
+    write(KEYS.requests, requests)
+    return request
   }
 
-  async resolvePost(id: string): Promise<HistoryEntry> {
+  async resolveRequest(id: string): Promise<HistoryEntry> {
     await delay()
-    const posts = read<Post[]>(KEYS.posts, [])
-    const idx = posts.findIndex((p) => p.id === id)
-    if (idx === -1) throw new Error('投稿が見つかりませんでした')
-    const post = posts[idx]
-    // 設計原則: 解決したら写真・氏名・詳細・連絡先は消える。
-    // 履歴には日時・エリア・解決した事実のみを残す。
-    posts.splice(idx, 1)
-    write(KEYS.posts, posts)
+    const requests = read<SearchRequest[]>(KEYS.requests, [])
+    const idx = requests.findIndex((r) => r.id === id)
+    if (idx === -1) throw new Error('依頼が見つかりませんでした')
+    const request = requests[idx]
+    // 設計原則: 解決したら写真・氏名・詳細・連絡先・更新情報の内容は消える。
+    // 履歴には日時・エリア・件数のみを残す。
+    requests.splice(idx, 1)
+    write(KEYS.requests, requests)
     const entry: HistoryEntry = {
-      id: post.id,
-      area: post.area,
+      id: request.id,
+      area: request.area,
       resolvedAt: Date.now(),
-      elapsedMinutes: Math.max(0, Math.floor((Date.now() - post.createdAt) / 60000)),
-      responses: post.responses,
+      elapsedMinutes: Math.max(0, Math.floor((Date.now() - request.createdAt) / 60000)),
+      updateCount: request.updates.length,
     }
     const history = read<HistoryEntry[]>(KEYS.history, [])
     history.unshift(entry)
@@ -134,11 +146,11 @@ export class LocalRepository implements Repository {
     return profile
   }
 
-  async loadDraft(): Promise<PostInput | null> {
-    return read<PostInput | null>(KEYS.draft, null)
+  async loadDraft(): Promise<RequestInput | null> {
+    return read<RequestInput | null>(KEYS.draft, null)
   }
 
-  async saveDraft(draft: PostInput): Promise<void> {
+  async saveDraft(draft: RequestInput): Promise<void> {
     write(KEYS.draft, draft)
   }
 
