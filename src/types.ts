@@ -54,8 +54,31 @@ export interface SearchRequest {
   policeReportNumber?: string
   /** 投稿者のユーザーID（解決操作の権限判定に使用。Phase 1 モックでは未設定） */
   authorUid?: string
+  /** 管理者による非表示（通報対応）。一般メンバーには表示されない */
+  hidden?: boolean
   /** 寄せられた目撃情報・情報提供・発見報告 */
   updates: RequestUpdate[]
+}
+
+/** 通報の理由区分 */
+export const REPORT_REASONS = [
+  '虚偽・いたずらの疑い',
+  '個人情報の扱いに問題',
+  '不適切な内容',
+  'その他',
+] as const
+
+/** 投稿への通報（管理者のみ閲覧可能） */
+export interface Report {
+  id: string
+  requestId: string
+  /** 通報時点の依頼の概要（依頼削除後も文脈が分かるように） */
+  requestSummary: string
+  reason: string
+  detail?: string
+  reporterUid: string
+  status: 'open' | 'done'
+  createdAt: number
 }
 
 /**
