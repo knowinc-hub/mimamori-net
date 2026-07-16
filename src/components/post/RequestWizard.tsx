@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { RequestInput } from '../../types'
 import { AREAS, EMPTY_REQUEST_INPUT } from '../../types'
-import { repository } from '../../data/localRepository'
+import { repository } from '../../data'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../context/ToastContext'
 import { Button } from '../ui/Button'

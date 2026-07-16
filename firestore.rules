@@ -1,0 +1,128 @@
+rules_version = '2';
+
+// みまもりネット セキュリティルール
+// 設計原則: エリア内の承認メンバーのみ閲覧可 / 解決したら消える / 登録は承認制
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function userData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+    function isApproved() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userData(request.auth.uid).status == 'approved';
+    }
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ---- 会員（承認制） ----
+    match /users/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      // 自己登録は「承認待ち」状態＋有効な招待コード必須
+      allow create: if isSelf(uid)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() > 0
+        && request.resource.data.area in ['練馬区', '西東京市', '武蔵野市']
+        && exists(/databases/$(database)/documents/inviteCodes/$(request.resource.data.inviteCode))
+        && get(/databases/$(database)/documents/inviteCodes/$(request.resource.data.inviteCode)).data.active == true;
+      // 本人は表示名・地区・通知設定のみ変更可（status・area・招待コードは変更不可）
+      allow update: if (isSelf(uid)
+          && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['nickname', 'district', 'notify']))
+        || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---- 招待コード（団体ごとに発行） ----
+    match /inviteCodes/{code} {
+      // 登録時の照合のため get のみ許可（一覧は管理者のみ）
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ---- 管理者（コンソールまたは管理者のみが追加） ----
+    match /admins/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false; // 追加・削除は Firebase コンソールから行う
+    }
+
+    // ---- 捜索依頼（メタ情報） ----
+    match /requests/{requestId} {
+      allow read: if isApproved();
+      // 警察届出の確認が必須。投稿者IDは本人のものに限る
+      allow create: if isApproved()
+        && request.resource.data.policeReported == true
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.area in ['練馬区', '西東京市', '武蔵野市']
+        && request.resource.data.location is string
+        && request.resource.data.location.size() > 0;
+      // 情報追加に伴う updatedAt / updateCount の更新は承認メンバーなら可
+      allow update: if isApproved()
+        && request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['updatedAt', 'updateCount']);
+      // 解決（削除）は投稿者か管理者のみ
+      allow delete: if isApproved()
+        && (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      // ---- 個人情報（解決時に物理削除する対象を隔離） ----
+      match /private/{docId} {
+        // 同エリアの承認メンバーのみ閲覧可
+        allow get, list: if isApproved()
+          && userData(request.auth.uid).area
+             == get(/databases/$(database)/documents/requests/$(requestId)).data.area;
+        allow create: if isApproved()
+          && request.resource.data.keys().hasOnly(
+               ['personName', 'detail', 'contact', 'photoDataUrl', 'policeReportNumber']);
+        allow update: if false;
+        allow delete: if isApproved()
+          && (get(/databases/$(database)/documents/requests/$(requestId)).data.authorUid
+                == request.auth.uid
+              || isAdmin());
+      }
+
+      // ---- 寄せられた情報（目撃・情報提供・発見報告） ----
+      match /updates/{updateId} {
+        allow read: if isApproved();
+        // 中身のない「反応」は作れない: 種類と投稿者必須、場所か内容のどちらか必須
+        allow create: if isApproved()
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.kind in ['sighting', 'info', 'found']
+          && (request.resource.data.location.size() > 0
+              || request.resource.data.comment.size() > 0);
+        allow update: if false;
+        // 解決時の削除は依頼の投稿者か管理者のみ
+        allow delete: if isApproved()
+          && (get(/databases/$(database)/documents/requests/$(requestId)).data.authorUid
+                == request.auth.uid
+              || isAdmin());
+      }
+    }
+
+    // ---- 解決済み履歴（日時・エリア・件数のみ） ----
+    match /history/{id} {
+      allow read: if isApproved();
+      // 個人情報にあたるキーは書き込めない
+      allow create: if isApproved()
+        && request.resource.data.keys().hasOnly(
+             ['area', 'resolvedAt', 'elapsedMinutes', 'updateCount']);
+      allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

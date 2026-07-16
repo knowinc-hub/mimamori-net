@@ -18,6 +18,7 @@ import { Button } from './ui/Button'
 import { GuardedPhoto } from './GuardedPhoto'
 import { UpdateDialog } from './UpdateDialog'
 import { useApp } from '../context/AppContext'
+import { useOptionalAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 
 const VISIBLE_UPDATES = 2
@@ -29,7 +30,10 @@ const VISIBLE_UPDATES = 2
  */
 export function RequestCard({ request }: { request: SearchRequest }) {
   const { resolveRequest } = useApp()
+  const auth = useOptionalAuth()
   const showToast = useToast()
+  // 解決の操作は依頼の投稿者（ご家族）と管理者のみ。モックモードでは常に表示
+  const canResolve = !auth || auth.isAdmin || (auth.user != null && request.authorUid === auth.user.uid)
   const [dialogKind, setDialogKind] = useState<UpdateKind | null>(null)
   const [confirmingResolve, setConfirmingResolve] = useState(false)
   const [showAllUpdates, setShowAllUpdates] = useState(false)
@@ -177,20 +181,21 @@ export function RequestCard({ request }: { request: SearchRequest }) {
           <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
           発見報告
         </Button>
-        {confirmingResolve ? (
-          <span className="flex items-center gap-2">
-            <Button variant="danger" disabled={busy} onClick={() => void resolve()}>
-              解決を確定
+        {canResolve &&
+          (confirmingResolve ? (
+            <span className="flex items-center gap-2">
+              <Button variant="danger" disabled={busy} onClick={() => void resolve()}>
+                解決を確定
+              </Button>
+              <Button variant="quiet" onClick={() => setConfirmingResolve(false)}>
+                戻る
+              </Button>
+            </span>
+          ) : (
+            <Button variant="secondary" disabled={busy} onClick={() => setConfirmingResolve(true)}>
+              解決
             </Button>
-            <Button variant="quiet" onClick={() => setConfirmingResolve(false)}>
-              戻る
-            </Button>
-          </span>
-        ) : (
-          <Button variant="secondary" disabled={busy} onClick={() => setConfirmingResolve(true)}>
-            解決
-          </Button>
-        )}
+          ))}
       </div>
 
       {dialogKind && (

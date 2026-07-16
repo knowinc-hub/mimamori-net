@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { repository } from '../data/localRepository'
+import { repository } from '../data'
 import type {
   HistoryEntry,
   Profile,

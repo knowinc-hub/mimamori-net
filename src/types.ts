@@ -52,6 +52,8 @@ export interface SearchRequest {
   policeReported: boolean
   /** 警察受理番号（任意） */
   policeReportNumber?: string
+  /** 投稿者のユーザーID（解決操作の権限判定に使用。Phase 1 モックでは未設定） */
+  authorUid?: string
   /** 寄せられた目撃情報・情報提供・発見報告 */
   updates: RequestUpdate[]
 }
@@ -70,13 +72,19 @@ export interface HistoryEntry {
   updateCount: number
 }
 
-/** 利用者プロフィール（Phase 1 はローカルのダミー） */
+/** 会員ステータス（承認制） */
+export type MemberStatus = 'pending' | 'approved' | 'suspended'
+
+/** 利用者プロフィール（Firestore の users/{uid} に対応） */
 export interface Profile {
   nickname: string
   area: Area
   district: string
   joinedAt: string
   contributions: number
+  status?: MemberStatus
+  /** 登録時に使った招待コードの配布団体名 */
+  organizationName?: string
   notify: {
     newRequest: boolean
     resolved: boolean
