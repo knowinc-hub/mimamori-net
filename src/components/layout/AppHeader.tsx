@@ -1,4 +1,4 @@
-import { Eye, MapPin } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 
 export function AppHeader() {
@@ -16,9 +16,9 @@ export function AppHeader() {
           </div>
         </div>
         {profile && (
-          <p className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700">
-            <MapPin className="h-4 w-4 text-teal-700" aria-hidden="true" />
-            {profile.area}
+          <p className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700">
+            <span className="text-slate-600">マイエリア：</span>
+            <span className="font-medium">{profile.area}</span>
           </p>
         )}
       </div>
