@@ -41,6 +41,7 @@ npx firebase deploy --only firestore:rules
 2. Firestore コンソールの `users` コレクションに自分のドキュメントができているので、
    ドキュメントID（= 自分のUID）をコピーし、フィールド `status` を `pending` → **`approved`** に変更
 3. コレクション `admins` を作成し、**ドキュメントID = 自分のUID**、フィールド `createdAt` (number): 0 で追加
+   - **重要**: UID は必ず Firestore コンソールの `users` ドキュメントID からコピー&ペーストすること。目視での書き写しは厳禁（小文字の l と大文字の I はコンソール上で区別がつかず、1文字違うと管理者と認識されない）
 4. アプリに戻ると（リロード不要で）ホーム画面が表示されます
 
 以降のメンバーの承認は、Phase 2 後半で実装する管理画面から行えるようになります。
