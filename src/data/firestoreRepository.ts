@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
   Timestamp,
 } from 'firebase/firestore'
@@ -50,8 +51,13 @@ function toMillis(v: unknown): number {
  */
 export class FirestoreRepository implements Repository {
   async listRequests(): Promise<SearchRequest[]> {
+    // 非表示（通報対応済み）の依頼は一般メンバーには出さない
     const snap = await getDocs(
-      query(collection(db, 'requests'), orderBy('createdAt', 'desc')),
+      query(
+        collection(db, 'requests'),
+        where('hidden', '==', false),
+        orderBy('createdAt', 'desc'),
+      ),
     )
     return Promise.all(
       snap.docs.map(async (d) => {
@@ -112,6 +118,7 @@ export class FirestoreRepository implements Repository {
       location: input.location.trim(),
       policeReported: input.policeReported,
       authorUid: uid(),
+      hidden: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
