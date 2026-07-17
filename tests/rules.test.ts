@@ -79,6 +79,17 @@ beforeEach(async () => {
       location: '吉祥寺駅北口付近',
       policeReported: true,
       authorUid: APPROVED_MUSASHINO,
+      hidden: false,
+      createdAt: 0,
+      updatedAt: 0,
+    })
+    // 通報対応で非表示にされた依頼
+    await setDoc(doc(f, 'requests', 'req-hidden'), {
+      area: '武蔵野市',
+      location: '非表示の依頼',
+      policeReported: true,
+      authorUid: APPROVED_MUSASHINO,
+      hidden: true,
       createdAt: 0,
       updatedAt: 0,
     })
@@ -196,6 +207,7 @@ describe('捜索依頼の作成（警察届出前提）', () => {
     location: '三鷹駅北口',
     policeReported: true,
     authorUid: APPROVED_MUSASHINO,
+    hidden: false,
     createdAt: 0,
     updatedAt: 0,
   }
@@ -308,6 +320,77 @@ describe('解決と削除（設計原則: 解決したら消える）', () => {
         personName: '山田さん',
       }),
     )
+  })
+})
+
+describe('非表示（通報対応）', () => {
+  it('一般メンバーは非表示の依頼を読めない', async () => {
+    await assertFails(getDoc(doc(db(APPROVED_MUSASHINO), 'requests', 'req-hidden')))
+  })
+
+  it('管理者は非表示の依頼を読める', async () => {
+    await assertSucceeds(getDoc(doc(db(ADMIN_USER), 'requests', 'req-hidden')))
+  })
+
+  it('一般メンバーは hidden を変更できない', async () => {
+    await assertFails(
+      updateDoc(doc(db(APPROVED_MUSASHINO), 'requests', 'req-1'), { hidden: true }),
+    )
+  })
+
+  it('管理者は hidden を変更できる', async () => {
+    await assertSucceeds(
+      updateDoc(doc(db(ADMIN_USER), 'requests', 'req-1'), { hidden: true }),
+    )
+  })
+
+  it('最初から hidden=true の依頼は作成できない', async () => {
+    await assertFails(
+      setDoc(doc(db(APPROVED_MUSASHINO), 'requests', 'req-x'), {
+        area: '武蔵野市',
+        location: 'どこか',
+        policeReported: true,
+        authorUid: APPROVED_MUSASHINO,
+        hidden: true,
+        createdAt: 0,
+        updatedAt: 0,
+      }),
+    )
+  })
+})
+
+describe('通報', () => {
+  const report = {
+    requestId: 'req-1',
+    requestSummary: '山田さん（吉祥寺駅北口付近）',
+    reason: '虚偽・いたずらの疑い',
+    detail: '',
+    reporterUid: APPROVED_NERIMA,
+    status: 'open',
+    createdAt: 0,
+  }
+
+  it('承認メンバーは通報を作成できる', async () => {
+    await assertSucceeds(setDoc(doc(db(APPROVED_NERIMA), 'reports', 'rep-1'), report))
+  })
+
+  it('他人になりすました通報は作成できない', async () => {
+    await assertFails(setDoc(doc(db(APPROVED_MUSASHINO), 'reports', 'rep-1'), report))
+  })
+
+  it('一般メンバーは通報を読めない（通報者本人でも）', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'reports', 'rep-1'), report)
+    })
+    await assertFails(getDoc(doc(db(APPROVED_NERIMA), 'reports', 'rep-1')))
+  })
+
+  it('管理者は通報を読めて対応済みにできる', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'reports', 'rep-1'), report)
+    })
+    await assertSucceeds(getDoc(doc(db(ADMIN_USER), 'reports', 'rep-1')))
+    await assertSucceeds(updateDoc(doc(db(ADMIN_USER), 'reports', 'rep-1'), { status: 'done' }))
   })
 })
 

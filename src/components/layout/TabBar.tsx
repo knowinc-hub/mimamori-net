@@ -1,22 +1,26 @@
-import { Home, Map, ClipboardList, Settings } from 'lucide-react'
+import { Home, Map, ClipboardList, Settings, ShieldCheck } from 'lucide-react'
 import type { ComponentType } from 'react'
 
-export type TabId = 'home' | 'area' | 'history' | 'settings'
+export type TabId = 'home' | 'area' | 'history' | 'settings' | 'admin'
 
-const TABS: { id: TabId; label: string; icon: ComponentType<{ className?: string }> }[] = [
+const BASE_TABS: { id: TabId; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'area', label: 'エリア', icon: Map },
   { id: 'history', label: '履歴', icon: ClipboardList },
   { id: 'settings', label: '設定', icon: Settings },
 ]
 
+const ADMIN_TAB = { id: 'admin' as TabId, label: '管理', icon: ShieldCheck }
+
 interface Props {
   active: TabId
   onChange: (tab: TabId) => void
+  showAdmin?: boolean
 }
 
 /** 下部タブナビゲーション（SVGアイコン＋テキストラベル併記、44px以上のタップ領域） */
-export function TabBar({ active, onChange }: Props) {
+export function TabBar({ active, onChange, showAdmin }: Props) {
+  const TABS = showAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS
   return (
     <nav
       aria-label="メインナビゲーション"

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AppProvider } from './context/AppContext'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { AuthProvider, useAuth, useOptionalAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { AppHeader } from './components/layout/AppHeader'
 import { TabBar, type TabId } from './components/layout/TabBar'
@@ -9,6 +9,7 @@ import { HomeScreen } from './screens/HomeScreen'
 import { AreaScreen } from './screens/AreaScreen'
 import { HistoryScreen } from './screens/HistoryScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
+import { AdminScreen } from './screens/AdminScreen'
 import {
   ConfirmEmailScreen,
   LoginScreen,
@@ -24,6 +25,8 @@ import { OfflineBanner } from './components/OfflineBanner'
 function Shell() {
   const [tab, setTab] = useState<TabId>('home')
   const [wizardOpen, setWizardOpen] = useState(false)
+  const auth = useOptionalAuth()
+  const isAdmin = auth?.isAdmin ?? false
 
   return (
     <div className="min-h-dvh">
@@ -35,6 +38,7 @@ function Shell() {
         {tab === 'area' && <AreaScreen />}
         {tab === 'history' && <HistoryScreen />}
         {tab === 'settings' && <SettingsScreen />}
+        {tab === 'admin' && isAdmin && <AdminScreen />}
       </main>
 
       {/* 捜索依頼ボタン（ラベル併記・44px以上）。発見報告・情報提供は依頼カードから行う */}
@@ -47,7 +51,7 @@ function Shell() {
         捜索依頼をする
       </button>
 
-      <TabBar active={tab} onChange={setTab} />
+      <TabBar active={tab} onChange={setTab} showAdmin={isAdmin} />
       <RequestWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </div>
   )

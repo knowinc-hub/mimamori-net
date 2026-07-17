@@ -17,6 +17,7 @@ import { SearchingBadge, UpdateKindBadge } from './ui/StatusBadge'
 import { Button } from './ui/Button'
 import { GuardedPhoto } from './GuardedPhoto'
 import { UpdateDialog } from './UpdateDialog'
+import { ReportDialog } from './ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useOptionalAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -35,6 +36,7 @@ export function RequestCard({ request }: { request: SearchRequest }) {
   // 解決の操作は依頼の投稿者（ご家族）と管理者のみ。モックモードでは常に表示
   const canResolve = !auth || auth.isAdmin || (auth.user != null && request.authorUid === auth.user.uid)
   const [dialogKind, setDialogKind] = useState<UpdateKind | null>(null)
+  const [reporting, setReporting] = useState(false)
   const [confirmingResolve, setConfirmingResolve] = useState(false)
   const [showAllUpdates, setShowAllUpdates] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -198,12 +200,32 @@ export function RequestCard({ request }: { request: SearchRequest }) {
           ))}
       </div>
 
+      {/* 通報導線（Firebase接続時のみ。控えめに配置） */}
+      {auth && (
+        <p className="mt-2 text-right">
+          <button
+            type="button"
+            onClick={() => setReporting(true)}
+            className="min-h-11 text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700"
+          >
+            問題を報告
+          </button>
+        </p>
+      )}
+
       {dialogKind && (
         <UpdateDialog
           requestId={request.id}
           kind={dialogKind}
           requestTitle={title}
           onClose={() => setDialogKind(null)}
+        />
+      )}
+      {reporting && (
+        <ReportDialog
+          requestId={request.id}
+          requestTitle={`${title}（${request.location}）`}
+          onClose={() => setReporting(false)}
         />
       )}
     </article>
